@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BarChart3, CalendarDays, ClipboardCheck, Files, FolderKanban, Map, MessageSquare, Settings, SquareStack } from 'lucide-react';
+import { BarChart3, CalendarDays, ClipboardCheck, Files, Map, MessageSquare, Settings, SquareStack } from 'lucide-react';
 
 const nav = [
   { label: 'Plano', href: '/', icon: Map },

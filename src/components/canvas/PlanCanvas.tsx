@@ -10,7 +10,7 @@ import type { Point, Zone } from '@/types/domain';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-function useFloorplanImage(src?: string, _fileType?: 'image' | 'pdf') {
+function useFloorplanImage(src?: string) {
   const [image, setImage] = useState<HTMLImageElement>();
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +39,7 @@ export function PlanCanvas() {
   const [stageSize, setStageSize] = useState({ width: 1200, height: 720 });
   const [draft, setDraft] = useState<Point[]>([]);
   const floorplan = floorplans.find((item) => item.id === activeFloorplanId);
-  const floorplanImage = useFloorplanImage(floorplan?.fileUrl, floorplan?.fileType);
+  const floorplanImage = useFloorplanImage(floorplan?.fileUrl);
   const visibleZones = useMemo(() => zones.filter((zone) => zone.floorplanId === activeFloorplanId), [activeFloorplanId, zones]);
   const selectedZone = useMemo(() => visibleZones.find((zone) => zone.id === selectedZoneId), [selectedZoneId, visibleZones]);
 
@@ -75,13 +75,14 @@ export function PlanCanvas() {
     setStagePos({ x: pointer.x - mousePointTo.x * newScale, y: pointer.y - mousePointTo.y * newScale });
   }
 
-  function handleStageClick() {
+  function handleStageClick(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     if (toolMode !== 'draw' || !floorplan) return;
+    if (event.target !== event.target.getStage()) return;
     const stage = stageRef.current;
     const pointer = stage?.getPointerPosition();
     if (!stage || !pointer) return;
     const point = screenPointToCanvasPoint(pointer, { x: stage.x(), y: stage.y() }, scale);
-    if (draft.length > 2 && isNearPoint(draft[0], point)) {
+    if (draft.length > 2 && isNearPoint(draft[0], point, 28 / Math.max(scale, 0.05))) {
       const zone: Zone = {
         id: `zone-${crypto.randomUUID()}`,
         floorplanId: floorplan.id,
@@ -98,7 +99,9 @@ export function PlanCanvas() {
         tags: [],
         priority: 'medium'
       };
-      void addZone(zone);
+      void addZone(zone).catch((error) => {
+        console.error('No se pudo guardar la zona.', error);
+      });
       setDraft([]);
       return;
     }
@@ -128,9 +131,9 @@ export function PlanCanvas() {
         {floorplan && <Rect x={0} y={0} width={floorplan.width} height={floorplan.height} fill="#10151f" stroke="#2b3446" strokeWidth={2 / Math.max(scale, 0.4)} />}
         {floorplanImage && <KonvaImage image={floorplanImage} x={0} y={0} width={floorplan?.width} height={floorplan?.height} />}
       </Layer>
-      <Layer>{visibleZones.map(renderZone)}{draft.length > 0 && <Line points={flattenPoints(draft)} stroke="#36d3ff" strokeWidth={3 / Math.max(scale, 0.7)} dash={[8, 8]} />}{draft.map((point, index) => <Circle key={index} x={point.x} y={point.y} radius={7 / Math.max(scale, 0.7)} fill="#36d3ff" />)}</Layer>
+      <Layer>{visibleZones.map(renderZone)}{draft.length > 0 && <Line points={flattenPoints(draft)} stroke="#36d3ff" strokeWidth={3 / Math.max(scale, 0.7)} dash={[8, 8]} />}{draft.length > 2 && <Line points={flattenPoints([...draft, draft[0]])} stroke="#36d3ff" strokeWidth={1.5 / Math.max(scale, 0.7)} opacity={0.35} dash={[4, 10]} />}{draft.map((point, index) => <Circle key={index} x={point.x} y={point.y} radius={(index === 0 ? 11 : 7) / Math.max(scale, 0.7)} fill={index === 0 && draft.length > 2 ? '#ffffff' : '#36d3ff'} stroke="#36d3ff" strokeWidth={index === 0 && draft.length > 2 ? 3 / Math.max(scale, 0.7) : 0} listening={false} />)}</Layer>
     </Stage>
-    <div className="absolute left-4 top-4 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white backdrop-blur">Modo: <b>{toolMode}</b> · Zoom {Math.round(scale * 100)}% · Zonas {visibleZones.length}</div>
+    <div className="absolute left-4 top-4 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white backdrop-blur">Modo: <b>{toolMode}</b> · Zoom {Math.round(scale * 100)}% · Zonas {visibleZones.length}{toolMode === 'draw' && draft.length > 2 ? <span className="block text-xs text-cyan-100">Toca el primer punto blanco para cerrar la zona.</span> : null}</div>
     <div className="absolute bottom-4 right-4 h-28 w-44 rounded-2xl border border-white/10 bg-black/50 p-2 backdrop-blur"><div className="h-full rounded-xl bg-industrial-grid bg-[length:18px_18px]"><div className="h-8 w-14 translate-x-12 translate-y-8 rounded bg-electric/30 ring-1 ring-electric" /></div></div>
     {selectedZone && <div className="absolute bottom-4 left-4 rounded-2xl border border-white/10 bg-black/55 px-4 py-3 text-sm text-white backdrop-blur">{selectedZone.id.slice(0, 12)} · {selectedZone.name}</div>}
   </div>;

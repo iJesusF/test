@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
 import type { Dependency, Floorplan, Level, Project, Task, Zone, ZoneStatus } from '@/types/domain';
 
 type ToolMode = 'select' | 'draw' | 'edit' | 'pan' | 'heatmap';
@@ -39,11 +39,54 @@ type ProjectState = {
   resetWorkspace: () => void;
 };
 
+const persistenceKey = 'buildvision-upload-workspace-v2';
+const legacyPersistenceKey = 'buildvision-upload-workspace-v1';
+const localIdPrefix = 'local-';
+
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error ?? `Request failed: ${response.status}`);
   return payload.data as T;
+}
+
+function createLocalId(kind: string) {
+  return `${localIdPrefix}${kind}-${crypto.randomUUID()}`;
+}
+
+function isLocalId(id?: string) {
+  return !id || id.startsWith(localIdPrefix) || id.startsWith('floorplan-') || id.startsWith('zone-');
+}
+
+function createLocalTask(zone: Zone): Task {
+  return { id: createLocalId('task'), zoneId: zone.id, name: zone.name, status: zone.status, progress: zone.progress, startDate: zone.startDate, endDate: zone.endDate, dependencyIds: [] };
+}
+
+function getClientStorage(): StateStorage {
+  if (typeof window === 'undefined') {
+    return { getItem: () => null, setItem: () => undefined, removeItem: () => undefined };
+  }
+
+  return {
+    getItem: (name) => {
+      try {
+        return localStorage.getItem(name);
+      } catch {
+        return null;
+      }
+    },
+    setItem: (name, value) => {
+      try {
+        localStorage.setItem(name, value);
+      } catch {
+        localStorage.removeItem(legacyPersistenceKey);
+        try { localStorage.setItem(name, value); } catch { /* keep the app usable even when browser storage is full */ }
+      }
+    },
+    removeItem: (name) => {
+      try { localStorage.removeItem(name); } catch { /* noop */ }
+    }
+  };
 }
 
 function syncProjectProgress(zones: Zone[], project?: Project): Project | undefined {
@@ -73,14 +116,25 @@ export const useProjectStore = create<ProjectState>()(persist((set, get) => ({
     set({ isLoading: false, error: undefined });
   },
   createProject: async (input) => {
-    const project = await api<Project>('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...input, status: 'not_started', progress: 0 }) });
-    set((state) => ({ projects: [project, ...state.projects], project }));
-    return project;
+    try {
+      const project = await api<Project>('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...input, status: 'not_started', progress: 0 }) });
+      set((state) => ({ projects: [project, ...state.projects.filter((item) => item.id !== project.id)], project, error: undefined }));
+      return project;
+    } catch (error) {
+      const project: Project = { id: createLocalId('project'), name: input.name, code: input.code, status: 'not_started', progress: 0 };
+      set((state) => ({ projects: [project, ...state.projects], project, error: error instanceof Error ? `Proyecto guardado localmente. Supabase no respondió: ${error.message}` : 'Proyecto guardado localmente.' }));
+      return project;
+    }
   },
   setActiveProject: async (projectId) => {
     const project = get().projects.find((item) => item.id === projectId);
     if (!project) return;
-    set({ project, isLoading: true, selectedZoneId: undefined });
+    set({ project, isLoading: !isLocalId(project.id), selectedZoneId: undefined, error: undefined });
+    if (isLocalId(project.id)) {
+      const activeFloorplanId = get().floorplans.find((item) => item.projectId === project.id || !item.projectId)?.id;
+      set({ activeFloorplanId, isLoading: false });
+      return;
+    }
     try {
       const [levels, floorplans, schedule] = await Promise.all([
         api<Level[]>(`/api/levels?project_id=${project.id}`),
@@ -95,12 +149,18 @@ export const useProjectStore = create<ProjectState>()(persist((set, get) => ({
     }
   },
   uploadFloorplan: (floorplan) => {
-    set((state) => ({
-      floorplans: [floorplan, ...state.floorplans.filter((item) => item.id !== floorplan.id)],
-      activeFloorplanId: floorplan.id,
-      selectedZoneId: undefined,
-      error: undefined
-    }));
+    set((state) => {
+      const project = state.project ?? { id: createLocalId('project'), name: 'Proyecto local', code: 'LOCAL', status: 'not_started', progress: 0 } satisfies Project;
+      const nextFloorplan = { ...floorplan, projectId: floorplan.projectId || project.id };
+      return {
+        project,
+        projects: state.projects.some((item) => item.id === project.id) ? state.projects : [project, ...state.projects],
+        floorplans: [nextFloorplan, ...state.floorplans.filter((item) => item.id !== nextFloorplan.id)],
+        activeFloorplanId: nextFloorplan.id,
+        selectedZoneId: undefined,
+        error: undefined
+      };
+    });
   },
   setSelectedZone: (zoneId) => set({ selectedZoneId: zoneId }),
   setHoveredZone: (zoneId) => set({ hoveredZoneId: zoneId }),
@@ -112,42 +172,84 @@ export const useProjectStore = create<ProjectState>()(persist((set, get) => ({
   updateZone: async (zoneId, patch) => {
     const previous = get().zones;
     const zones = previous.map((zone) => (zone.id === zoneId ? { ...zone, ...patch } : zone));
-    set((state) => ({ zones, project: syncProjectProgress(zones, state.project), tasks: state.tasks.map((task) => (task.zoneId === zoneId ? { ...task, name: patch.name ?? task.name, status: patch.status ?? task.status, progress: patch.progress ?? task.progress, startDate: patch.startDate ?? task.startDate, endDate: patch.endDate ?? task.endDate } : task)) }));
-    try { await api<Zone>(`/api/zones/${zoneId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) }); } catch (error) { set({ zones: previous, error: error instanceof Error ? error.message : 'No se pudo guardar la zona.' }); }
+    set((state) => ({ zones, project: syncProjectProgress(zones, state.project), tasks: state.tasks.map((task) => (task.zoneId === zoneId ? { ...task, name: patch.name ?? task.name, status: patch.status ?? task.status, progress: patch.progress ?? task.progress, startDate: patch.startDate ?? task.startDate, endDate: patch.endDate ?? task.endDate } : task)), error: undefined }));
+    if (isLocalId(zoneId)) return;
+    try { await api<Zone>(`/api/zones/${zoneId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) }); } catch (error) { set({ error: error instanceof Error ? `Cambios guardados localmente. Supabase no respondió: ${error.message}` : 'Cambios guardados localmente.' }); }
   },
   addZone: async (zone) => {
-    const response = await fetch('/api/zones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(zone) });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error ?? 'No se pudo crear la zona.');
-    const createdZone = payload.data as Zone;
-    const createdTask = payload.task as Task | null | undefined;
-    set((state) => { const zones = [...state.zones, createdZone]; return { zones, selectedZoneId: createdZone.id, project: syncProjectProgress(zones, state.project), tasks: createdTask ? [...state.tasks, createdTask] : state.tasks }; });
+    const localZone = { ...zone, id: zone.id || createLocalId('zone') };
+    const localTask = createLocalTask(localZone);
+    set((state) => {
+      const zones = [...state.zones, localZone];
+      return { zones, selectedZoneId: localZone.id, project: syncProjectProgress(zones, state.project), tasks: [...state.tasks, localTask], error: undefined };
+    });
+
+    if (isLocalId(localZone.floorplanId)) return;
+
+    try {
+      const response = await fetch('/api/zones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(localZone) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? 'No se pudo crear la zona.');
+      const createdZone = payload.data as Zone;
+      const createdTask = payload.task as Task | null | undefined;
+      set((state) => {
+        const zones = state.zones.map((item) => (item.id === localZone.id ? createdZone : item));
+        return {
+          zones,
+          selectedZoneId: createdZone.id,
+          project: syncProjectProgress(zones, state.project),
+          tasks: state.tasks.map((task) => (task.id === localTask.id ? createdTask ?? { ...localTask, zoneId: createdZone.id } : task)),
+          error: undefined
+        };
+      });
+    } catch (error) {
+      set({ error: error instanceof Error ? `Zona guardada localmente. Supabase no respondió: ${error.message}` : 'Zona guardada localmente.' });
+    }
   },
   deleteZone: async (zoneId) => {
     const previous = get().zones;
-    set((state) => ({ zones: state.zones.filter((zone) => zone.id !== zoneId), tasks: state.tasks.filter((task) => task.zoneId !== zoneId), selectedZoneId: state.selectedZoneId === zoneId ? undefined : state.selectedZoneId }));
-    try { await fetch(`/api/zones/${zoneId}`, { method: 'DELETE' }); } catch { set({ zones: previous }); }
+    set((state) => ({ zones: state.zones.filter((zone) => zone.id !== zoneId), tasks: state.tasks.filter((task) => task.zoneId !== zoneId), selectedZoneId: state.selectedZoneId === zoneId ? undefined : state.selectedZoneId, error: undefined }));
+    if (isLocalId(zoneId)) return;
+    try { await fetch(`/api/zones/${zoneId}`, { method: 'DELETE' }); } catch { set({ zones: previous, error: 'No se pudo eliminar la zona en Supabase.' }); }
   },
   duplicateZone: async (zoneId) => {
     const zone = get().zones.find((item) => item.id === zoneId);
     if (!zone) return;
-    await get().addZone({ ...zone, id: '', name: `${zone.name} copia`, points: zone.points.map((point) => ({ x: point.x + 24, y: point.y + 24 })) });
+    await get().addZone({ ...zone, id: createLocalId('zone'), name: `${zone.name} copia`, points: zone.points.map((point) => ({ x: point.x + 24, y: point.y + 24 })) });
   },
   updateTaskDates: async (taskId, startDate, endDate) => {
     const task = get().tasks.find((item) => item.id === taskId);
     set((state) => ({ tasks: state.tasks.map((item) => (item.id === taskId ? { ...item, startDate, endDate } : item)), zones: task ? state.zones.map((zone) => (zone.id === task.zoneId ? { ...zone, startDate, endDate } : zone)) : state.zones }));
+    if (isLocalId(taskId)) return;
     await api<Task>(`/api/tasks/${taskId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ startDate, endDate }) });
   },
-  setProjectStatus: async (status) => { const project = get().project; if (!project) return; const updated = await api<Project>(`/api/projects/${project.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) }); set({ project: updated }); },
-  resetWorkspace: () => set({ project: undefined, projects: [], levels: [], floorplans: [], activeFloorplanId: undefined, zones: [], tasks: [], dependencies: [], selectedZoneId: undefined, hoveredZoneId: undefined, toolMode: 'select', error: undefined })
+  setProjectStatus: async (status) => {
+    const project = get().project;
+    if (!project) return;
+    set({ project: { ...project, status } });
+    if (isLocalId(project.id)) return;
+    try {
+      const updated = await api<Project>(`/api/projects/${project.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+      set({ project: updated, projects: get().projects.map((item) => (item.id === updated.id ? updated : item)) });
+    } catch (error) {
+      set({ error: error instanceof Error ? `Estado guardado localmente. Supabase no respondió: ${error.message}` : 'Estado guardado localmente.' });
+    }
+  },
+  resetWorkspace: () => {
+    try {
+      localStorage.removeItem(persistenceKey);
+      localStorage.removeItem(legacyPersistenceKey);
+    } catch { /* noop */ }
+    set({ project: undefined, projects: [], levels: [], floorplans: [], activeFloorplanId: undefined, zones: [], tasks: [], dependencies: [], selectedZoneId: undefined, hoveredZoneId: undefined, toolMode: 'select', error: undefined });
+  }
 }), {
-  name: 'buildvision-upload-workspace-v1',
-  storage: createJSONStorage(() => localStorage),
+  name: persistenceKey,
+  storage: createJSONStorage(getClientStorage),
   partialize: (state) => ({
     project: state.project,
     projects: state.projects,
     levels: state.levels,
-    floorplans: state.floorplans,
+    floorplans: state.floorplans.map((floorplan) => ({ ...floorplan, fileUrl: floorplan.fileUrl.startsWith('data:') ? '' : floorplan.fileUrl })),
     activeFloorplanId: state.activeFloorplanId,
     zones: state.zones,
     tasks: state.tasks,

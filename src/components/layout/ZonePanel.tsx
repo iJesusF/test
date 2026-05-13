@@ -14,13 +14,15 @@ export function ZonePanel() {
   const zone = zones.find((item) => item.id === selectedZoneId);
   if (!zone) return <aside className="w-full border-t border-white/10 bg-graphite/80 p-5 xl:w-96 xl:border-l xl:border-t-0"><p className="text-xs uppercase tracking-[0.28em] text-muted">Panel de zona</p><h2 className="mt-2 text-xl font-semibold text-white">Selecciona o dibuja una zona</h2><p className="mt-3 text-sm text-muted">Cuando cierres un polígono en el canvas, la zona aparecerá aquí para editar nombre, estado, avance, responsable, fechas y notas.</p></aside>;
 
+  const selectedZone = zone;
+
   function addChecklistItem() {
-    const label = `Checklist ${zone.checklist.length + 1}`;
-    updateZone(zone.id, { checklist: [...zone.checklist, { id: `check-${crypto.randomUUID()}`, label, done: false }] });
+    const label = `Checklist ${selectedZone.checklist.length + 1}`;
+    updateZone(selectedZone.id, { checklist: [...selectedZone.checklist, { id: `check-${crypto.randomUUID()}`, label, done: false }] });
   }
 
   function toggleChecklistItem(itemId: string) {
-    updateZone(zone.id, { checklist: zone.checklist.map((item) => (item.id === itemId ? { ...item, done: !item.done } : item)) });
+    updateZone(selectedZone.id, { checklist: selectedZone.checklist.map((item) => (item.id === itemId ? { ...item, done: !item.done } : item)) });
   }
 
   return <motion.aside initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} className="w-full border-t border-white/10 bg-graphite/90 p-4 backdrop-blur-xl xl:w-96 xl:border-l xl:border-t-0 xl:p-5">
