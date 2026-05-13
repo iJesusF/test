@@ -1,0 +1,4 @@
+import { dependencyFromDb } from '@/lib/db-mappers';
+import { getSupabaseAdmin, jsonError } from '@/lib/supabase-server';
+export async function PATCH(request: Request, { params }: { params: { id: string } }) { try { const body = await request.json(); const { data, error } = await getSupabaseAdmin().from('dependencies').update({ predecessor_task_id: body.predecessorId, successor_task_id: body.successorId, type: body.type, lag_days: body.lagDays }).eq('id', params.id).select('*').single(); if (error) throw error; return Response.json({ data: dependencyFromDb(data) }); } catch (error) { return jsonError(error); } }
+export async function DELETE(_: Request, { params }: { params: { id: string } }) { try { const { error } = await getSupabaseAdmin().from('dependencies').delete().eq('id', params.id); if (error) throw error; return Response.json({ ok: true }); } catch (error) { return jsonError(error); } }
