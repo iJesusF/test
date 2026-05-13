@@ -54,7 +54,7 @@ async function loadPdfFloorplan(file: File): Promise<LoadedFloorplan> {
   return {
     name: `${file.name} · página 1`,
     fileUrl: canvas.toDataURL('image/png'),
-    fileType: 'image',
+    fileType: 'pdf',
     width: canvas.width,
     height: canvas.height
   };
@@ -72,7 +72,7 @@ export async function loadFloorplanFile(file: File): Promise<Floorplan> {
   const floorplan = isPdf ? await loadPdfFloorplan(file) : await loadRasterFloorplan(file);
   return {
     id: `floorplan-${crypto.randomUUID()}`,
-    projectId: '',
+    projectId: 'local-project',
     ...floorplan
   };
 }
