@@ -72,7 +72,7 @@ export async function loadFloorplanFile(file: File): Promise<Floorplan> {
   const floorplan = isPdf ? await loadPdfFloorplan(file) : await loadRasterFloorplan(file);
   return {
     id: `floorplan-${crypto.randomUUID()}`,
-    projectId: '',
+    projectId: 'local-project',
     ...floorplan
   };
 }

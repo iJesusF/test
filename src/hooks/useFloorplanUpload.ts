@@ -8,7 +8,7 @@ export function useFloorplanUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string>();
   const [isUploading, setIsUploading] = useState(false);
-  const uploadFloorplan = useProjectStore((state) => state.uploadFloorplan);
+  const addFloorplan = useProjectStore((state) => state.addFloorplan);
 
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -18,8 +18,7 @@ export function useFloorplanUpload() {
     setUploadError(undefined);
     setIsUploading(true);
     try {
-      const metadata = await loadFloorplanFile(file);
-      await uploadFloorplan(file, metadata);
+      addFloorplan(await loadFloorplanFile(file));
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : 'No se pudo subir el plano.');
     } finally {
