@@ -1,0 +1,4 @@
+import { levelFromDb } from '@/lib/db-mappers';
+import { getSupabaseAdmin, jsonError } from '@/lib/supabase-server';
+export async function GET(request: Request) { try { const projectId = new URL(request.url).searchParams.get('project_id'); let query = getSupabaseAdmin().from('levels').select('*').order('sort_order'); if (projectId) query = query.eq('project_id', projectId); const { data, error } = await query; if (error) throw error; return Response.json({ data: data.map(levelFromDb) }); } catch (error) { return jsonError(error); } }
+export async function POST(request: Request) { try { const body = await request.json(); const { data, error } = await getSupabaseAdmin().from('levels').insert({ project_id: body.projectId, name: body.name, elevation: body.elevation, sort_order: body.sortOrder ?? 0 }).select('*').single(); if (error) throw error; return Response.json({ data: levelFromDb(data) }, { status: 201 }); } catch (error) { return jsonError(error); } }

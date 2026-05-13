@@ -1,0 +1,57 @@
+'use client';
+
+import Link from 'next/link';
+import { FormEvent, useMemo, useState } from 'react';
+import { Expand, MonitorUp, Plus, Settings, UploadCloud } from 'lucide-react';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { useFloorplanUpload } from '@/hooks/useFloorplanUpload';
+import { useProjectStore } from '@/store/project-store';
+
+export function Topbar() {
+  const { uploadError, isUploading, handleUpload } = useFloorplanUpload();
+  const { project, projects, floorplans, activeFloorplanId, createProject, setActiveProject, setActiveFloorplan } = useProjectStore();
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [projectName, setProjectName] = useState('');
+  const projectFloorplans = useMemo(() => (project ? floorplans.filter((item) => item.projectId === project.id) : []), [floorplans, project]);
+  const floorplan = projectFloorplans.find((item) => item.id === activeFloorplanId);
+
+  async function enterFullscreen() {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+      return;
+    }
+    await document.exitFullscreen();
+  }
+
+  async function handleCreateProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = projectName.trim();
+    if (!name) return;
+    const code = name.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 16) || `P-${Date.now()}`;
+    await createProject({ name, code });
+    setProjectName('');
+    setIsCreatingProject(false);
+  }
+
+  return <header className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-graphite/80 px-4 py-3 backdrop-blur-xl lg:px-6">
+    <div className="min-w-0 flex-1"><p className="text-xs uppercase tracking-[0.28em] text-muted">Proyecto activo</p><h1 className="truncate text-lg font-semibold text-white">{project?.name ?? 'Sin proyecto'}</h1>{uploadError && <p className="mt-1 text-xs text-danger">{uploadError}</p>}</div>
+    <StatusBadge status={project?.status ?? 'not_started'} />
+    <select value={project?.id ?? ''} onChange={(event) => void setActiveProject(event.target.value)} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none" disabled={!projects.length}>
+      <option value="">{project?.name ?? 'Sin proyecto'}</option>
+      {projects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+    </select>
+    {isCreatingProject ? <form onSubmit={handleCreateProject} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] p-1"><input value={projectName} onChange={(event) => setProjectName(event.target.value)} autoFocus placeholder="Nombre del proyecto" className="w-44 bg-transparent px-2 text-sm text-white outline-none placeholder:text-muted" /><button type="submit" className="rounded-lg bg-electric px-3 py-1.5 text-xs font-semibold text-white">Crear</button><button type="button" onClick={() => setIsCreatingProject(false)} className="px-2 text-xs text-muted hover:text-white">Cancelar</button></form> : <button onClick={() => setIsCreatingProject(true)} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-white hover:bg-white/10"><Plus className="size-4" />Proyecto</button>}
+    <select value={activeFloorplanId ?? ''} onChange={(event) => void setActiveFloorplan(event.target.value)} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none" disabled={!projectFloorplans.length}>
+      <option value="">{floorplan?.name ?? 'Sin plano'}</option>
+      {projectFloorplans.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+    </select>
+    <label aria-disabled={isUploading || !project} className={`relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-electric px-3 py-2 text-sm font-semibold text-white shadow-glow transition hover:bg-blue-400 ${isUploading || !project ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+      <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" onChange={handleUpload} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" disabled={isUploading || !project} aria-label="Subir plano" />
+      <UploadCloud className="size-4" />{isUploading ? 'Procesando…' : 'Subir plano'}
+    </label>
+    <Link href="/settings" className="hidden items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-white hover:bg-white/10 md:inline-flex"><Settings className="size-4" />Resets</Link>
+    <Link href="/tv" className="hidden items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-white hover:bg-white/10 md:inline-flex"><MonitorUp className="size-4" />TV</Link>
+    <button onClick={enterFullscreen} className="rounded-xl border border-white/10 p-2 text-white hover:bg-white/10"><Expand className="size-4" /></button>
+    <Link href="/settings" className="rounded-xl border border-white/10 p-2 text-white hover:bg-white/10"><Settings className="size-4" /></Link>
+  </header>;
+}
