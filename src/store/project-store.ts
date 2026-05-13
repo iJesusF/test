@@ -62,6 +62,10 @@ function createLocalTask(zone: Zone): Task {
   return { id: createLocalId('task'), zoneId: zone.id, name: zone.name, status: zone.status, progress: zone.progress, startDate: zone.startDate, endDate: zone.endDate, dependencyIds: [] };
 }
 
+function isServerBackedFloorplan(floorplan?: Floorplan) {
+  return Boolean(floorplan?.storagePath && !isLocalId(floorplan.id) && !isLocalId(floorplan.projectId));
+}
+
 function getClientStorage(): StateStorage {
   if (typeof window === 'undefined') {
     return { getItem: () => null, setItem: () => undefined, removeItem: () => undefined };
@@ -171,9 +175,11 @@ export const useProjectStore = create<ProjectState>()(persist((set, get) => ({
   },
   updateZone: async (zoneId, patch) => {
     const previous = get().zones;
+    const existingZone = previous.find((zone) => zone.id === zoneId);
     const zones = previous.map((zone) => (zone.id === zoneId ? { ...zone, ...patch } : zone));
     set((state) => ({ zones, project: syncProjectProgress(zones, state.project), tasks: state.tasks.map((task) => (task.zoneId === zoneId ? { ...task, name: patch.name ?? task.name, status: patch.status ?? task.status, progress: patch.progress ?? task.progress, startDate: patch.startDate ?? task.startDate, endDate: patch.endDate ?? task.endDate } : task)), error: undefined }));
-    if (isLocalId(zoneId)) return;
+    const floorplan = get().floorplans.find((item) => item.id === existingZone?.floorplanId);
+    if (isLocalId(zoneId) || !isServerBackedFloorplan(floorplan)) return;
     try { await api<Zone>(`/api/zones/${zoneId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) }); } catch (error) { set({ error: error instanceof Error ? `Cambios guardados localmente. Supabase no respondió: ${error.message}` : 'Cambios guardados localmente.' }); }
   },
   addZone: async (zone) => {
@@ -184,7 +190,8 @@ export const useProjectStore = create<ProjectState>()(persist((set, get) => ({
       return { zones, selectedZoneId: localZone.id, project: syncProjectProgress(zones, state.project), tasks: [...state.tasks, localTask], error: undefined };
     });
 
-    if (isLocalId(localZone.floorplanId)) return;
+    const floorplan = get().floorplans.find((item) => item.id === localZone.floorplanId);
+    if (!isServerBackedFloorplan(floorplan)) return;
 
     try {
       const response = await fetch('/api/zones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(localZone) });
@@ -208,8 +215,10 @@ export const useProjectStore = create<ProjectState>()(persist((set, get) => ({
   },
   deleteZone: async (zoneId) => {
     const previous = get().zones;
+    const existingZone = previous.find((zone) => zone.id === zoneId);
     set((state) => ({ zones: state.zones.filter((zone) => zone.id !== zoneId), tasks: state.tasks.filter((task) => task.zoneId !== zoneId), selectedZoneId: state.selectedZoneId === zoneId ? undefined : state.selectedZoneId, error: undefined }));
-    if (isLocalId(zoneId)) return;
+    const floorplan = get().floorplans.find((item) => item.id === existingZone?.floorplanId);
+    if (isLocalId(zoneId) || !isServerBackedFloorplan(floorplan)) return;
     try { await fetch(`/api/zones/${zoneId}`, { method: 'DELETE' }); } catch { set({ zones: previous, error: 'No se pudo eliminar la zona en Supabase.' }); }
   },
   duplicateZone: async (zoneId) => {
