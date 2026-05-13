@@ -5,7 +5,9 @@ const nextConfig = {
     config.resolve = config.resolve ?? {};
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
-      canvas: false
+      canvas: false,
+      'konva$': 'konva/lib/index.js',
+      'konva/lib/index-node.js': 'konva/lib/index.js'
     };
     return config;
   }
