@@ -6,4 +6,14 @@ export async function GET() {
 
 export async function POST() {
   return NextResponse.json({ error: 'CRUD local activo en cliente. Integra Supabase aquí para persistencia remota.' }, { status: 501 });
+import { zones } from '@/lib/mock-data';
+import { created, ok } from '@/lib/api';
+
+export async function GET() {
+  return ok(zones);
+}
+
+export async function POST(request: Request) {
+  const zone = await request.json();
+  return created(zone);
 }
