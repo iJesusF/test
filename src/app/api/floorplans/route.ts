@@ -1,12 +1,9 @@
-import { floorplan } from '@/lib/mock-data';
-import { created, ok } from '@/lib/api';
+import { NextResponse } from 'next/server';
 
 export async function GET() {
-  return ok([floorplan]);
+  return NextResponse.json({ data: [], message: 'Los planos se cargan y persisten localmente en el navegador para este MVP.' });
 }
 
-export async function POST(request: Request) {
-  const formData = await request.formData();
-  const file = formData.get('file');
-  return created({ ...floorplan, name: file instanceof File ? file.name : floorplan.name });
+export async function POST() {
+  return NextResponse.json({ error: 'Upload local activo en cliente. Integra Supabase Storage aquí para persistencia remota.' }, { status: 501 });
 }

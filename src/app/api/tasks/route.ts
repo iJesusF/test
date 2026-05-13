@@ -1,6 +1,5 @@
-import { dependencies, tasks } from '@/lib/mock-data';
-import { ok } from '@/lib/api';
+import { NextResponse } from 'next/server';
 
 export async function GET() {
-  return ok({ tasks, dependencies });
+  return NextResponse.json({ data: { tasks: [], dependencies: [] }, message: 'Las tareas se derivan localmente de las zonas dibujadas.' });
 }
