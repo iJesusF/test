@@ -1,7 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
-import { Circle, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text } from 'react-konva';
+import { Circle, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text } from 'react-konva/lib/ReactKonvaCore';
+import 'konva/lib/shapes/Circle';
+import 'konva/lib/shapes/Image';
+import 'konva/lib/shapes/Line';
+import 'konva/lib/shapes/Rect';
+import 'konva/lib/shapes/Text';
 import type Konva from 'konva';
 import { flattenPoints, isNearPoint, polygonCenter, screenPointToCanvasPoint } from '@/lib/canvas/geometry';
 import { statusColors } from '@/lib/status';
