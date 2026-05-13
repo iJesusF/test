@@ -1,0 +1,3 @@
+import { getSupabaseAdmin, jsonError } from '@/lib/supabase-server';
+export async function PATCH(request: Request, { params }: { params: { id: string } }) { try { const body = await request.json(); const { data, error } = await getSupabaseAdmin().from('levels').update({ name: body.name, elevation: body.elevation, sort_order: body.sortOrder }).eq('id', params.id).select('*').single(); if (error) throw error; return Response.json({ data }); } catch (error) { return jsonError(error); } }
+export async function DELETE(_: Request, { params }: { params: { id: string } }) { try { const { error } = await getSupabaseAdmin().from('levels').delete().eq('id', params.id); if (error) throw error; return Response.json({ ok: true }); } catch (error) { return jsonError(error); } }
