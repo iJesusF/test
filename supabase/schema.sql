@@ -14,20 +14,9 @@ create table projects (
   updated_at timestamptz not null default now()
 );
 
-create table levels (
-  id uuid primary key default uuid_generate_v4(),
-  project_id uuid not null references projects(id) on delete cascade,
-  name text not null,
-  elevation numeric(10,2),
-  sort_order integer not null default 0,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
 create table floorplans (
   id uuid primary key default uuid_generate_v4(),
   project_id uuid not null references projects(id) on delete cascade,
-  level_id uuid references levels(id) on delete set null,
   name text not null,
   storage_path text not null,
   public_url text not null,
@@ -114,9 +103,7 @@ create table progress_logs (
   created_at timestamptz not null default now()
 );
 
-create index idx_levels_project on levels(project_id);
 create index idx_floorplans_project on floorplans(project_id);
-create index idx_floorplans_level on floorplans(level_id);
 create index idx_zones_floorplan on zones(floorplan_id);
 create index idx_tasks_project_dates on tasks(project_id, start_date, end_date);
 create index idx_dependencies_successor on dependencies(successor_task_id);

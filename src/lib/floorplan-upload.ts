@@ -2,15 +2,8 @@ import type { Floorplan } from '@/types/domain';
 
 const imageTypes = ['image/jpeg', 'image/png', 'image/webp'];
 const pdfType = 'application/pdf';
-const pdfJsVersion = '4.10.38';
-const pdfJsUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfJsVersion}/pdf.min.mjs`;
-const pdfWorkerUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfJsVersion}/pdf.worker.min.mjs`;
 
 type LoadedFloorplan = Omit<Floorplan, 'id' | 'projectId'>;
-type PdfJs = {
-  GlobalWorkerOptions: { workerSrc: string };
-  getDocument: (source: { data: ArrayBuffer }) => { promise: Promise<{ getPage: (pageNumber: number) => Promise<{ getViewport: (options: { scale: number }) => { width: number; height: number }; render: (options: { canvasContext: CanvasRenderingContext2D; viewport: { width: number; height: number } }) => { promise: Promise<void> } }> }> };
-};
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -30,12 +23,6 @@ function loadImage(src: string) {
   });
 }
 
-async function getPdfJs(): Promise<PdfJs> {
-  const pdfjs = await import(/* webpackIgnore: true */ pdfJsUrl) as PdfJs;
-  pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-  return pdfjs;
-}
-
 async function loadRasterFloorplan(file: File): Promise<LoadedFloorplan> {
   const fileUrl = await readFileAsDataUrl(file);
   const image = await loadImage(fileUrl);
@@ -49,7 +36,9 @@ async function loadRasterFloorplan(file: File): Promise<LoadedFloorplan> {
 }
 
 async function loadPdfFloorplan(file: File): Promise<LoadedFloorplan> {
-  const pdfjs = await getPdfJs();
+  const pdfjs = await import('pdfjs-dist');
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+
   const buffer = await file.arrayBuffer();
   const pdf = await pdfjs.getDocument({ data: buffer }).promise;
   const page = await pdf.getPage(1);
@@ -65,7 +54,7 @@ async function loadPdfFloorplan(file: File): Promise<LoadedFloorplan> {
   return {
     name: `${file.name} · página 1`,
     fileUrl: canvas.toDataURL('image/png'),
-    fileType: 'image',
+    fileType: 'pdf',
     width: canvas.width,
     height: canvas.height
   };
@@ -83,7 +72,7 @@ export async function loadFloorplanFile(file: File): Promise<Floorplan> {
   const floorplan = isPdf ? await loadPdfFloorplan(file) : await loadRasterFloorplan(file);
   return {
     id: `floorplan-${crypto.randomUUID()}`,
-    projectId: '',
+    projectId: 'local-project',
     ...floorplan
   };
 }

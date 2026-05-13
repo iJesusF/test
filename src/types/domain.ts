@@ -12,21 +12,11 @@ export type Project = {
   progress: number;
 };
 
-export type Level = {
-  id: string;
-  projectId: string;
-  name: string;
-  elevation?: number;
-  sortOrder: number;
-};
-
 export type Floorplan = {
   id: string;
   projectId: string;
-  levelId?: string;
   name: string;
   fileUrl: string;
-  storagePath?: string;
   fileType: 'image' | 'pdf';
   width: number;
   height: number;
