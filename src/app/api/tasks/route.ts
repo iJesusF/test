@@ -1,4 +1,5 @@
-import { dependencyFromDb, taskFromDb } from '@/lib/db-mappers';
-import { getSupabaseAdmin, jsonError } from '@/lib/supabase-server';
-export async function GET(request: Request) { try { const projectId = new URL(request.url).searchParams.get('project_id'); const supabase = getSupabaseAdmin(); let taskQuery = supabase.from('tasks').select('*').order('start_date'); if (projectId) taskQuery = taskQuery.eq('project_id', projectId); const { data: tasks, error } = await taskQuery; if (error) throw error; const { data: deps, error: depError } = await supabase.from('dependencies').select('*'); if (depError) throw depError; return Response.json({ data: { tasks: tasks.map(taskFromDb), dependencies: deps.map(dependencyFromDb) } }); } catch (error) { return jsonError(error); } }
-export async function POST(request: Request) { try { const body = await request.json(); const { data, error } = await getSupabaseAdmin().from('tasks').insert({ project_id: body.projectId, zone_id: body.zoneId, name: body.name, status: body.status ?? 'not_started', progress: body.progress ?? 0, start_date: body.startDate, end_date: body.endDate, sort_order: body.sortOrder ?? 0 }).select('*').single(); if (error) throw error; return Response.json({ data: taskFromDb(data) }, { status: 201 }); } catch (error) { return jsonError(error); } }
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  return NextResponse.json({ data: { tasks: [], dependencies: [] }, message: 'Las tareas se derivan localmente de las zonas dibujadas.' });
+}
