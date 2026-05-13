@@ -36,6 +36,8 @@ type ProjectState = {
   duplicateZone: (zoneId: string) => Promise<void>;
   updateTaskDates: (taskId: string, startDate: string, endDate: string) => Promise<void>;
   setProjectStatus: (status: ZoneStatus) => Promise<void>;
+  resetActiveFloorplanZones: () => void;
+  resetActiveProjectFloorplans: () => void;
   resetWorkspace: () => void;
 };
 
@@ -122,11 +124,11 @@ export const useProjectStore = create<ProjectState>()(persist((set, get) => ({
   createProject: async (input) => {
     try {
       const project = await api<Project>('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...input, status: 'not_started', progress: 0 }) });
-      set((state) => ({ projects: [project, ...state.projects.filter((item) => item.id !== project.id)], project, error: undefined }));
+      set((state) => ({ projects: [project, ...state.projects.filter((item) => item.id !== project.id)], project, activeFloorplanId: undefined, selectedZoneId: undefined, error: undefined }));
       return project;
     } catch (error) {
       const project: Project = { id: createLocalId('project'), name: input.name, code: input.code, status: 'not_started', progress: 0 };
-      set((state) => ({ projects: [project, ...state.projects], project, error: error instanceof Error ? `Proyecto guardado localmente. Supabase no respondió: ${error.message}` : 'Proyecto guardado localmente.' }));
+      set((state) => ({ projects: [project, ...state.projects], project, activeFloorplanId: undefined, selectedZoneId: undefined, error: error instanceof Error ? `Proyecto guardado localmente. Supabase no respondió: ${error.message}` : 'Proyecto guardado localmente.' }));
       return project;
     }
   },
@@ -135,7 +137,7 @@ export const useProjectStore = create<ProjectState>()(persist((set, get) => ({
     if (!project) return;
     set({ project, isLoading: !isLocalId(project.id), selectedZoneId: undefined, error: undefined });
     if (isLocalId(project.id)) {
-      const activeFloorplanId = get().floorplans.find((item) => item.projectId === project.id || !item.projectId)?.id;
+      const activeFloorplanId = get().floorplans.find((item) => item.projectId === project.id)?.id;
       set({ activeFloorplanId, isLoading: false });
       return;
     }
@@ -243,6 +245,41 @@ export const useProjectStore = create<ProjectState>()(persist((set, get) => ({
     } catch (error) {
       set({ error: error instanceof Error ? `Estado guardado localmente. Supabase no respondió: ${error.message}` : 'Estado guardado localmente.' });
     }
+  },
+  resetActiveFloorplanZones: () => {
+    const activeFloorplanId = get().activeFloorplanId;
+    if (!activeFloorplanId) return;
+    set((state) => {
+      const removedZoneIds = new Set(state.zones.filter((zone) => zone.floorplanId === activeFloorplanId).map((zone) => zone.id));
+      const zones = state.zones.filter((zone) => zone.floorplanId !== activeFloorplanId);
+      return {
+        zones,
+        tasks: state.tasks.filter((task) => !removedZoneIds.has(task.zoneId)),
+        selectedZoneId: undefined,
+        hoveredZoneId: undefined,
+        project: syncProjectProgress(zones, state.project),
+        error: undefined
+      };
+    });
+  },
+  resetActiveProjectFloorplans: () => {
+    const project = get().project;
+    if (!project) return;
+    set((state) => {
+      const removedFloorplanIds = new Set(state.floorplans.filter((floorplan) => floorplan.projectId === project.id).map((floorplan) => floorplan.id));
+      const removedZoneIds = new Set(state.zones.filter((zone) => removedFloorplanIds.has(zone.floorplanId)).map((zone) => zone.id));
+      const zones = state.zones.filter((zone) => !removedZoneIds.has(zone.id));
+      return {
+        floorplans: state.floorplans.filter((floorplan) => !removedFloorplanIds.has(floorplan.id)),
+        activeFloorplanId: removedFloorplanIds.has(state.activeFloorplanId ?? '') ? undefined : state.activeFloorplanId,
+        zones,
+        tasks: state.tasks.filter((task) => !removedZoneIds.has(task.zoneId)),
+        selectedZoneId: undefined,
+        hoveredZoneId: undefined,
+        project: syncProjectProgress(zones, state.project),
+        error: undefined
+      };
+    });
   },
   resetWorkspace: () => {
     try {

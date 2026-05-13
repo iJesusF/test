@@ -10,6 +10,7 @@ export type EvidenceFile = {
   mimeType: string;
   size: number;
   url?: string;
+  caption?: string;
   createdAt: string;
 };
 
