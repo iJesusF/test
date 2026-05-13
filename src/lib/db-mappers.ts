@@ -1,4 +1,4 @@
-import type { Dependency, Floorplan, Level, Point, Priority, Project, Task, Zone, ZoneStatus } from '@/types/domain';
+import type { Dependency, EvidenceFile, Floorplan, Level, Point, Priority, Project, Task, Zone, ZoneStatus } from '@/types/domain';
 
 type DbRow = Record<string, unknown>;
 
@@ -27,7 +27,7 @@ export function floorplanFromDb(row: DbRow): Floorplan {
 }
 
 export function zoneFromDb(row: DbRow): Zone {
-  return { id: stringField(row, 'id'), floorplanId: stringField(row, 'floorplan_id'), name: stringField(row, 'name'), color: stringField(row, 'color', '#4f8cff'), status: stringField(row, 'status', 'not_started') as ZoneStatus, progress: numberField(row, 'progress'), notes: stringField(row, 'notes'), responsible: stringField(row, 'responsible'), startDate: stringField(row, 'start_date', new Date().toISOString().slice(0, 10)), endDate: stringField(row, 'end_date', new Date().toISOString().slice(0, 10)), points: arrayField<Point>(row, 'polygon'), checklist: arrayField<Zone['checklist'][number]>(row, 'checklist'), tags: arrayField<string>(row, 'tags'), priority: stringField(row, 'priority', 'medium') as Priority };
+  return { id: stringField(row, 'id'), floorplanId: stringField(row, 'floorplan_id'), name: stringField(row, 'name'), color: stringField(row, 'color', '#4f8cff'), status: stringField(row, 'status', 'not_started') as ZoneStatus, progress: numberField(row, 'progress'), notes: stringField(row, 'notes'), responsible: stringField(row, 'responsible'), startDate: stringField(row, 'start_date', new Date().toISOString().slice(0, 10)), endDate: stringField(row, 'end_date', new Date().toISOString().slice(0, 10)), points: arrayField<Point>(row, 'polygon'), checklist: arrayField<Zone['checklist'][number]>(row, 'checklist'), attachments: arrayField<EvidenceFile>(row, 'attachments'), tags: arrayField<string>(row, 'tags'), priority: stringField(row, 'priority', 'medium') as Priority };
 }
 
 export function taskFromDb(row: DbRow): Task {

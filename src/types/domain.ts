@@ -4,6 +4,15 @@ export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
 
 export type Point = { x: number; y: number };
 
+export type EvidenceFile = {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  url?: string;
+  createdAt: string;
+};
+
 export type Project = {
   id: string;
   name: string;
@@ -45,6 +54,7 @@ export type Zone = {
   endDate: string;
   points: Point[];
   checklist: { id: string; label: string; done: boolean }[];
+  attachments: EvidenceFile[];
   tags: string[];
   priority: Priority;
 };

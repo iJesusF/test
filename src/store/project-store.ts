@@ -260,7 +260,7 @@ export const useProjectStore = create<ProjectState>()(persist((set, get) => ({
     levels: state.levels,
     floorplans: state.floorplans.map((floorplan) => ({ ...floorplan, fileUrl: floorplan.fileUrl.startsWith('data:') ? '' : floorplan.fileUrl })),
     activeFloorplanId: state.activeFloorplanId,
-    zones: state.zones,
+    zones: state.zones.map((zone) => ({ ...zone, attachments: (zone.attachments ?? []).map((file) => ({ ...file, url: file.url?.startsWith('blob:') ? undefined : file.url })) })),
     tasks: state.tasks,
     dependencies: state.dependencies
   })
