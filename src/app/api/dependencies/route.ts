@@ -1,0 +1,4 @@
+import { dependencyFromDb } from '@/lib/db-mappers';
+import { getSupabaseAdmin, jsonError } from '@/lib/supabase-server';
+export async function GET() { try { const { data, error } = await getSupabaseAdmin().from('dependencies').select('*').order('created_at'); if (error) throw error; return Response.json({ data: data.map(dependencyFromDb) }); } catch (error) { return jsonError(error); } }
+export async function POST(request: Request) { try { const body = await request.json(); const { data, error } = await getSupabaseAdmin().from('dependencies').insert({ predecessor_task_id: body.predecessorId, successor_task_id: body.successorId, type: body.type, lag_days: body.lagDays ?? 0 }).select('*').single(); if (error) throw error; return Response.json({ data: dependencyFromDb(data) }, { status: 201 }); } catch (error) { return jsonError(error); } }
