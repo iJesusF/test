@@ -1,6 +1,6 @@
 # BuildVision
 
-Aplicación web responsive para gestión visual de avance de construcción sobre planos arquitectónicos. El MVP funciona realmente en navegador: permite subir una imagen o PDF de plano, renderizarlo en canvas, dibujar zonas, editar vértices, editar metadatos y persistir temporalmente en `localStorage` usando Zustand.
+Aplicación web responsive para gestión visual de avance de construcción sobre planos arquitectónicos. El MVP funciona realmente en navegador: permite subir una imagen de plano, renderizarla en canvas, dibujar zonas, editar vértices, editar metadatos y persistir temporalmente en `localStorage` usando Zustand.
 
 ## Arquitectura
 
@@ -19,9 +19,7 @@ src/components/canvas   Canvas Konva real y toolbar de herramientas
 src/components/layout   Shell, sidebar, topbar/upload y panel CRUD de zona
 src/components/timeline Gantt visual derivado de zonas reales
 src/components/ui       Componentes reutilizables de UI
-src/hooks               Hooks de upload y flujo cliente
-src/lib                 Supabase, upload PDF/imagen, helpers y utilities
-src/lib/canvas          Canvas engine: geometría y conversión de coordenadas
+src/lib                 Supabase, helpers y estado visual
 src/store               Store Zustand persistente
 src/types               Modelos TypeScript de dominio
 supabase/schema.sql     Modelo relacional de producción
@@ -30,7 +28,7 @@ supabase/schema.sql     Modelo relacional de producción
 ## Funcionalidades implementadas
 
 1. Dashboard responsive sin login.
-2. Upload real de JPG, PNG, WebP y PDF desde el navegador.
+2. Upload real de imágenes PNG/JPG/WebP desde el navegador.
 3. Render real del plano subido dentro de React Konva.
 4. Zoom por wheel y pan con herramienta dedicada.
 5. Dibujo manual de polígonos cerrando cerca del primer punto.
@@ -55,7 +53,7 @@ Abre `http://localhost:3000` para el dashboard y `http://localhost:3000/tv` para
 ## Flujo de uso del MVP
 
 1. Haz clic en **Subir plano**.
-2. Selecciona una imagen PNG, JPG, WebP o PDF del plano arquitectónico.
+2. Selecciona una imagen PNG, JPG o WebP del plano arquitectónico.
 3. Activa la herramienta **Dibujar**.
 4. Haz clic sobre el plano para crear vértices.
 5. Cierra el polígono haciendo clic cerca del primer punto.
@@ -65,16 +63,7 @@ Abre `http://localhost:3000` para el dashboard y `http://localhost:3000/tv` para
 9. Recarga el navegador: el trabajo permanece en `localStorage`.
 10. Usa **Reset** para borrar el workspace local.
 
-> Nota MVP: los PDF se rasterizan en el navegador usando `pdfjs-dist` y se usa la primera página como fondo del canvas.
-
-## Rutas App Router
-
-- `/`: Plano interactivo para subir archivo, zoom/pan, dibujar y editar zonas.
-- `/zones`: CRUD/listado de zonas desde Zustand.
-- `/tasks`: Tareas reales derivadas de las zonas.
-- `/schedule`: Cronograma conectado al store.
-- `/reports`: Métricas calculadas desde el workspace local.
-- `/settings`: Estado y reset del workspace local.
+> Nota MVP: los PDF deben exportarse como imagen para renderizarse en canvas. La integración PDF directa puede añadirse con `pdf.js` en la siguiente fase.
 
 ## Supabase
 
@@ -87,7 +76,7 @@ Abre `http://localhost:3000` para el dashboard y `http://localhost:3000/tv` para
 ## Roadmap MVP
 
 ### Fase 1 completada
-- Upload real de imagen/PDF.
+- Upload real de imagen.
 - Render del plano en canvas.
 - Dibujo y edición manual de zonas.
 - Panel lateral editable.
