@@ -1,6 +1,6 @@
-# BuildVision
+# Vortech 360
 
-Aplicación full-stack para gestión visual de avance de construcción sobre planos arquitectónicos. El flujo principal funciona contra Supabase: crea proyectos, sube planos JPG/PNG/PDF a Supabase Storage, guarda metadatos en PostgreSQL, dibuja zonas sobre el canvas y persiste polígonos/coordenadas reales.
+Aplicación full-stack para track visual de proyectos, calidad en obra y evidencias sobre planos arquitectónicos. El flujo principal funciona contra Supabase: crea proyectos, sube planos JPG/PNG/PDF a Supabase Storage, guarda metadatos en PostgreSQL, dibuja zonas sobre el canvas y persiste polígonos/coordenadas reales.
 
 ## Arquitectura
 

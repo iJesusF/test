@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'BuildVision · Visual Construction Progress',
-  description: 'Gestión visual responsive de avance de construcción sobre planos arquitectónicos.'
+  title: 'Vortech 360 · Calidad visual en obra',
+  description: 'Track visual de proyectos, calidad y evidencias de obra sobre planos arquitectónicos.'
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
